@@ -16,9 +16,35 @@ def reveal_board():
         else:
             buttons[i].config(text='✔', disabledforeground="green", state=DISABLED)
 
+# calculate success probability of user bet and updates bet multiplier label as a response
+def calculate_multiplier():
+    global bet_multiplier
+    try:
+        max_choices = int(entry_choices.get())
+        num_bombs = int(entry_bombs.get())
+        if max_choices <= 0 or max_choices > 25:
+            raise ValueError
+        if num_bombs < 0 or num_bombs >= 25:
+            raise ValueError
+    except ValueError:
+        multiplier_label.config(text="Payout Multiplier: -")
+        return
+    
+    success_probability = 1.0
+    remaining_safe = 25 - num_bombs
+    remaining_total = 25
+    
+    for _ in range(max_choices):
+        success_probability *= remaining_safe / remaining_total
+        remaining_safe -= 1
+        remaining_total -= 1
+    
+    bet_multiplier = (1 / success_probability) * 0.9  # Slightly lower than true odds
+    update_multiplier_label()
+
 # behavior for when the square is selected by the user
 def on_square_click(index):
-    global safe_count, max_choices
+    global safe_count, max_choices, balance
 
     # check for chosen_squares variable to be made if not informs the user to trigger its creation
     if 'chosen_squares' not in globals():
@@ -37,6 +63,7 @@ def on_square_click(index):
         buttons[index].config(text='💣', bg='red')
         messagebox.showinfo("Game Over", "BOOM! You hit a bomb!")
         reveal_board()
+        balance -= bet_amount
     # when the square is safe checks if the max number of guesses is reached if so user wins game if not continues to next guess
     else:
         buttons[index].config(text='✔', bg='green')
@@ -44,24 +71,30 @@ def on_square_click(index):
         if safe_count == max_choices:
             messagebox.showinfo("You Win!", "Congratulations! You successfully picked all safe squares!")
             reveal_board()
+            balance += bet_amount * bet_multiplier
+    update_balance_label()
 
 # gather user inputs from the interface and generates game board from result
 def start_game():
-    global board, chosen_squares, safe_count, max_choices
+    global board, chosen_squares, safe_count, max_choices, bet_amount, num_bombs
     
     try:
         max_choices = int(entry_choices.get())
         num_bombs = int(entry_bombs.get())
+        bet_amount = int(entry_bet.get())
 
         if max_choices <= 0 or max_choices > 25:
             raise ValueError
         if num_bombs < 0 or num_bombs >= 25:
             raise ValueError
+        if bet_amount <= 0 or bet_amount > balance:
+            raise ValueError
     except ValueError:
-        messagebox.showerror("Error", "Invalid input. Setting defaults: 5 picks, 5 bombs.")
+        messagebox.showerror("Error", "Invalid input. Setting defaults: 5 picks, 5 bombs, $10 bet.")
         max_choices = 5
         num_bombs = 5
-    
+        bet_amount = 10
+
     board = generate_board(num_bombs)
     chosen_squares = set()
     safe_count = 0
@@ -69,10 +102,20 @@ def start_game():
     for i in range(25):
         buttons[i].config(text='?', bg='lightgray', state=NORMAL)
 
+# update multiplier label based on new multiplier
+def update_multiplier_label():
+    multiplier_label.config(text=f"Payout Multiplier: {bet_multiplier:.2f}x")
+
+# update balance label based on new balance
+def update_balance_label():
+    balance_label.config(text=f"Balance: ${balance:.2f}")
+
 if __name__ == "__main__":
     # creates interface
     root = Tk()
     root.title("Mines")
+
+    balance = 100
 
     frame = Frame(root)
     frame.pack()
@@ -91,6 +134,7 @@ if __name__ == "__main__":
     entry_choices = Entry(root)
     entry_choices.pack()
     entry_choices.insert(0, "5")
+    entry_choices.bind("<KeyRelease>", lambda e: calculate_multiplier())
 
     label_bombs = Label(root, text="Enter the number of bombs:")
     label_bombs.pack()
@@ -98,6 +142,21 @@ if __name__ == "__main__":
     entry_bombs = Entry(root)
     entry_bombs.pack()
     entry_bombs.insert(0, "5")
+    entry_bombs.bind("<KeyRelease>", lambda e: calculate_multiplier())
+
+    label_bet = Label(root, text="Enter your bet amount:")
+    label_bet.pack()
+    entry_bet = Entry(root)
+    entry_bet.pack()
+    entry_bet.insert(0, "10")
+
+    balance_label = Label(root, text=f"Balance: ${balance:.2f}")
+    balance_label.pack()
+
+    multiplier_label = Label(root, text="Payout Multiplier: -")
+    multiplier_label.pack()
+
+    calculate_multiplier()
 
     # creates start game button
     start_button = Button(root, text="Start Game", command=start_game)
