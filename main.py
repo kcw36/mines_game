@@ -82,7 +82,7 @@ def update_potential_returns():
 
 # behavior for when the square is selected by the user
 def on_square_click(index):
-    global safe_count, balance, bet_amount
+    global balance, bet_amount, bet_multiplier
 
     if 'chosen_squares' not in globals():
         messagebox.showinfo("Game Not Started.", "Please click the start game button before playing")
@@ -97,19 +97,19 @@ def on_square_click(index):
         buttons[index].config(text='💣', bg='red')
         messagebox.showinfo("Game Over", "BOOM! You hit a bomb!")
         reveal_board()
-        balance -= bet_amount
-        multiplier_label.config(text=f"Payout Multiplier: 1.00x") 
+        bet_multiplier = 1
+        update_multiplier_label()
         payout_label.config(text=f"Current Return: -")
     else:
         buttons[index].config(text='✔', bg='green')
         calculate_multiplier()
+        update_return_label()
 
     update_balance_label()
-    update_return_label()
 
 # gather user inputs from the interface and generates game board from result
 def start_game():
-    global board, chosen_squares, safe_count, bet_amount, num_bombs, bet_multiplier
+    global board, chosen_squares, bet_amount, num_bombs, balance
     
     try:
         num_bombs = int(entry_bombs.get())
@@ -120,14 +120,18 @@ def start_game():
         if bet_amount <= 0 or bet_amount > balance:
             raise ValueError
     except ValueError:
-        messagebox.showerror("Error", "Invalid input. Setting defaults: 5 picks, 5 bombs, $10 bet.")
+        messagebox.showerror("Error", "Invalid input. Setting defaults: 5 bombs, $10 bet.")
         num_bombs = 5
         bet_amount = 10
+        entry_bombs.delete(0, "end")
+        entry_bet.delete(0, "end")
+        entry_bombs.insert(0, "5")
+        entry_bet.insert(0, "10")
 
     board = generate_board(num_bombs)
     chosen_squares = set()
-    safe_count = 0
-    bet_multiplier = 1.0
+    balance -= bet_amount
+    update_balance_label()
     
     for i in range(25):
         buttons[i].config(text='?', bg='lightgray', state=NORMAL)
